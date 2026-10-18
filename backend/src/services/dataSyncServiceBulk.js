@@ -1,4 +1,4 @@
-const { Tenant, Customer, Product, Order, OrderItem } = require('../models');
+const { Customer, Product, Order, OrderItem } = require('../models');
 const ShopifyService = require('./shopifyService');
 const { Op } = require('sequelize');
 
@@ -12,36 +12,34 @@ class DataSyncServiceBulk {
     };
   }
 
-  async syncTenantData(tenantId) {
-    console.log(`🚀 Starting OPTIMIZED bulk data sync for tenant: ${tenantId}`);
+  async syncStoreData(store) {
+    console.log(`🚀 Starting OPTIMIZED bulk data sync for store: ${store.id} (tenant: ${store.tenantId})`);
     
     try {
-      const tenant = await Tenant.findByPk(tenantId);
-      if (!tenant || !tenant.shopifyAccessToken) {
-        throw new Error('Tenant not found or Shopify access token missing');
+      if (!store.accessToken || !store.storeName) {
+        throw new Error('Store Shopify credentials missing');
       }
 
-      const shopify = new ShopifyService(tenant.shopifyStoreName, tenant.shopifyAccessToken);
+      const shopify = new ShopifyService(store.storeName, store.accessToken);
       
       this.resetStats();
 
-      
-      await this.syncCustomersBulk(tenant, shopify);
-      await this.syncProductsBulk(tenant, shopify);
-      await this.syncOrdersBulk(tenant, shopify);
+      await this.syncCustomersBulk(store, shopify);
+      await this.syncProductsBulk(store, shopify);
+      await this.syncOrdersBulk(store, shopify);
 
-      // Update last sync timestamp
-      await tenant.update({ lastSyncAt: new Date() });
+      // Update last sync timestamp on the store
+      await store.update({ lastSyncAt: new Date() });
 
-      console.log(`✅ OPTIMIZED bulk data sync completed for tenant: ${tenantId}`, this.syncStats);
+      console.log(`✅ OPTIMIZED bulk data sync completed for store: ${store.id}`, this.syncStats);
       return this.syncStats;
     } catch (error) {
-      console.error(`❌ OPTIMIZED bulk data sync failed for tenant: ${tenantId}`, error);
+      console.error(`❌ OPTIMIZED bulk data sync failed for store: ${store.id}`, error);
       throw error;
     }
   }
 
-  async syncCustomersBulk(tenant, shopify) {
+  async syncCustomersBulk(store, shopify) {
     try {
       console.log('🔄 Bulk syncing customers...');
       const shopifyCustomers = await shopify.getAllCustomers();
@@ -53,7 +51,8 @@ class DataSyncServiceBulk {
 
       // Prepare all customer data for bulk insert
       const customerData = shopifyCustomers.map(shopifyCustomer => ({
-        tenantId: tenant.id,
+        tenantId: store.tenantId,
+        storeId: store.id,
         shopifyCustomerId: shopifyCustomer.id,
         email: shopifyCustomer.email,
         firstName: shopifyCustomer.first_name,
@@ -71,7 +70,7 @@ class DataSyncServiceBulk {
       }));
 
       // Use bulkCreate with updateOnDuplicate for upsert behavior
-      const result = await Customer.bulkCreate(customerData, {
+      await Customer.bulkCreate(customerData, {
         updateOnDuplicate: [
           'email', 'firstName', 'lastName', 'phone', 'totalSpent', 
           'ordersCount', 'state', 'tags', 'acceptsMarketing', 
@@ -83,7 +82,7 @@ class DataSyncServiceBulk {
       // Get existing customers to calculate created vs updated
       const existingCustomers = await Customer.findAll({
         where: {
-          tenantId: tenant.id,
+          storeId: store.id,
           shopifyCustomerId: {
             [Op.in]: shopifyCustomers.map(c => c.id)
           }
@@ -102,7 +101,7 @@ class DataSyncServiceBulk {
     }
   }
 
-  async syncProductsBulk(tenant, shopify) {
+  async syncProductsBulk(store, shopify) {
     try {
       console.log('🔄 Bulk syncing products...');
       const shopifyProducts = await shopify.getAllProducts();
@@ -117,7 +116,8 @@ class DataSyncServiceBulk {
         const firstVariant = shopifyProduct.variants?.[0];
         
         return {
-          tenantId: tenant.id,
+          tenantId: store.tenantId,
+          storeId: store.id,
           shopifyProductId: shopifyProduct.id,
           title: shopifyProduct.title,
           vendor: shopifyProduct.vendor,
@@ -151,7 +151,7 @@ class DataSyncServiceBulk {
       // Get existing products to calculate created vs updated
       const existingProducts = await Product.findAll({
         where: {
-          tenantId: tenant.id,
+          storeId: store.id,
           shopifyProductId: {
             [Op.in]: shopifyProducts.map(p => p.id)
           }
@@ -170,7 +170,7 @@ class DataSyncServiceBulk {
     }
   }
 
-  async syncOrdersBulk(tenant, shopify) {
+  async syncOrdersBulk(store, shopify) {
     try {
       console.log('🔄 Bulk syncing orders...');
       const shopifyOrders = await shopify.getAllOrders();
@@ -182,13 +182,13 @@ class DataSyncServiceBulk {
 
       // Get all customers and products in bulk for reference mapping
       const customers = await Customer.findAll({
-        where: { tenantId: tenant.id },
+        where: { storeId: store.id },
         attributes: ['id', 'shopifyCustomerId']
       });
       const customerMap = new Map(customers.map(c => [c.shopifyCustomerId, c.id]));
 
       const products = await Product.findAll({
-        where: { tenantId: tenant.id },
+        where: { storeId: store.id },
         attributes: ['id', 'shopifyProductId']
       });
       const productMap = new Map(products.map(p => [p.shopifyProductId, p.id]));
@@ -201,7 +201,8 @@ class DataSyncServiceBulk {
         const customerId = shopifyOrder.customer ? customerMap.get(shopifyOrder.customer.id) : null;
 
         const orderRecord = {
-          tenantId: tenant.id,
+          tenantId: store.tenantId,
+          storeId: store.id,
           customerId: customerId,
           shopifyOrderId: shopifyOrder.id,
           orderNumber: shopifyOrder.order_number?.toString(),
@@ -233,7 +234,7 @@ class DataSyncServiceBulk {
             const productId = lineItem.product_id ? productMap.get(lineItem.product_id) : null;
 
             allOrderItems.push({
-              tenantId: tenant.id,
+              tenantId: store.tenantId,
               // orderId will be set after orders are created
               shopifyOrderId: shopifyOrder.id,
               productId: productId,
@@ -272,7 +273,7 @@ class DataSyncServiceBulk {
       // Get the created orders to map orderIds for order items
       const createdOrders = await Order.findAll({
         where: {
-          tenantId: tenant.id,
+          storeId: store.id,
           shopifyOrderId: {
             [Op.in]: shopifyOrders.map(o => o.id)
           }
@@ -302,7 +303,7 @@ class DataSyncServiceBulk {
       // Calculate stats
       const existingOrders = await Order.findAll({
         where: {
-          tenantId: tenant.id,
+          storeId: store.id,
           shopifyOrderId: {
             [Op.in]: shopifyOrders.map(o => o.id)
           }

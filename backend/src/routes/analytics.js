@@ -19,14 +19,22 @@ const dateRangeValidation = [
   query('limit')
     .optional()
     .isInt({ min: 1, max: 100 })
-    .withMessage('Limit must be between 1 and 100')
+    .withMessage('Limit must be between 1 and 100'),
+  query('storeId')
+    .optional()
+    .isUUID()
+    .withMessage('Invalid store ID format')
 ];
 
 const periodValidation = [
   query('period')
     .optional()
     .isIn(['7days', '30days', '90days', '1year'])
-    .withMessage('Invalid period')
+    .withMessage('Invalid period'),
+  query('storeId')
+    .optional()
+    .isUUID()
+    .withMessage('Invalid store ID format')
 ];
 
 // Apply authentication to all routes

@@ -39,6 +39,14 @@ export const authAPI = {
   updateProfile: (data) => api.put('/auth/profile', data),
 };
 
+export const storeAPI = {
+  getStores: () => api.get('/stores'),
+  getStoreById: (storeId) => api.get(`/stores/${storeId}`),
+  createStore: (data) => api.post('/stores', data),
+  updateStore: (storeId, data) => api.put(`/stores/${storeId}`, data),
+  deleteStore: (storeId) => api.delete(`/stores/${storeId}`),
+};
+
 export const analyticsAPI = {
   getDashboard: (params) => api.get('/analytics/dashboard', { params }),
   getOrdersByDate: (params) => api.get('/analytics/orders-by-date', { params }),
@@ -48,8 +56,8 @@ export const analyticsAPI = {
 };
 
 export const syncAPI = {
-  triggerSync: () => api.post('/sync/sync'),
-  getStatus: () => api.get('/sync/status'),
+  triggerSync: (storeId) => api.post(`/sync/sync/${storeId}`),
+  getStatus: (storeId) => api.get(`/sync/status/${storeId}`),
 };
 
 export default api;

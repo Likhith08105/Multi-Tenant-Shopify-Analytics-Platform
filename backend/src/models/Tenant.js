@@ -10,7 +10,6 @@ module.exports = (sequelize, DataTypes) => {
     email: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true,
       validate: {
         isEmail: true
       }
@@ -24,8 +23,7 @@ module.exports = (sequelize, DataTypes) => {
     },
     shopifyStoreName: {
       type: DataTypes.STRING,
-      allowNull: false,
-      unique: true
+      allowNull: false
     },
     shopifyAccessToken: {
       type: DataTypes.STRING,
@@ -65,7 +63,17 @@ module.exports = (sequelize, DataTypes) => {
           tenant.password = await bcrypt.hash(tenant.password, 12);
         }
       }
-    }
+    },
+    indexes: [
+      {
+        unique: true,
+        fields: ['email']
+      },
+      {
+        unique: true,
+        fields: ['shopifyStoreName']
+      }
+    ]
   });
 
   Tenant.prototype.validatePassword = async function(password) {
@@ -80,6 +88,10 @@ module.exports = (sequelize, DataTypes) => {
   };
 
   Tenant.associate = function(models) {
+    Tenant.hasMany(models.Store, {
+      foreignKey: 'tenantId',
+      as: 'stores'
+    });
     Tenant.hasMany(models.Customer, {
       foreignKey: 'tenantId',
       as: 'customers'

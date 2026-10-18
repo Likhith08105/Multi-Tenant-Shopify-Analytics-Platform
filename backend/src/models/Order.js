@@ -13,6 +13,14 @@ module.exports = (sequelize, DataTypes) => {
         key: 'id'
       }
     },
+    storeId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'stores',
+        key: 'id'
+      }
+    },
     customerId: {
       type: DataTypes.UUID,
       allowNull: true,
@@ -107,7 +115,7 @@ module.exports = (sequelize, DataTypes) => {
     indexes: [
       {
         unique: true,
-        fields: ['tenantId', 'shopifyOrderId']
+        fields: ['storeId', 'shopifyOrderId']
       },
       {
         fields: ['tenantId', 'customerId']
@@ -128,6 +136,10 @@ module.exports = (sequelize, DataTypes) => {
     Order.belongsTo(models.Tenant, {
       foreignKey: 'tenantId',
       as: 'tenant'
+    });
+    Order.belongsTo(models.Store, {
+      foreignKey: 'storeId',
+      as: 'store'
     });
     Order.belongsTo(models.Customer, {
       foreignKey: 'customerId',

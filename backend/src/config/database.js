@@ -8,7 +8,7 @@ module.exports = {
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 3306,
     dialect: process.env.DB_DIALECT || 'mysql',
-    logging: console.log,
+    logging: false,
     pool: {
       max: 10,
       min: 0,

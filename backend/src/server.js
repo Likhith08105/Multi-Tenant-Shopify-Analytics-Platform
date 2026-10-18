@@ -13,6 +13,7 @@ const { sequelize } = require('./models');
 const authRoutes = require('./routes/auth');
 const analyticsRoutes = require('./routes/analytics');
 const syncRoutes = require('./routes/sync');
+const storeRoutes = require('./routes/stores');
 
 
 const errorHandler = require('./middleware/errorHandler');
@@ -55,7 +56,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('combined'));
+  app.use(morgan('dev'));
 }
 
 
@@ -73,6 +74,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/stores', storeRoutes);
 
 
 

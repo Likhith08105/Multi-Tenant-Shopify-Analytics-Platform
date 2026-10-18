@@ -22,6 +22,7 @@ const db = {};
 
 // Import models
 db.Tenant = require('./Tenant')(sequelize, DataTypes);
+db.Store = require('./Store')(sequelize, DataTypes);
 db.Customer = require('./Customer')(sequelize, DataTypes);
 db.Product = require('./Product')(sequelize, DataTypes);
 db.Order = require('./Order')(sequelize, DataTypes);
@@ -33,6 +34,11 @@ Object.keys(db).forEach(modelName => {
     db[modelName].associate(db);
   }
 });
+
+// Add new Store relationships
+db.Store.hasMany(db.Order, { foreignKey: 'storeId', as: 'orders' });
+db.Store.hasMany(db.Customer, { foreignKey: 'storeId', as: 'customers' });
+db.Store.hasMany(db.Product, { foreignKey: 'storeId', as: 'products' });
 
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
